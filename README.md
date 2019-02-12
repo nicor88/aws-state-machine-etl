@@ -8,7 +8,7 @@ ETL based on State Machines and Lambda functions
 * AWS credentials configured
 * Serverless
 
-## AWS Infrastructure
+### AWS Infrastructure
 * S3 Deployment Bucket `aws s3api create-bucket --bucket nicor-deployment --region us-east-1`
 * S3 staging Bucket `aws s3api create-bucket --bucket nicor-staging --region us-east-1`
 * Secret Manager Key called `sample_etl`
@@ -20,6 +20,11 @@ ETL based on State Machines and Lambda functions
 	}
   </pre>
 * Step Machine IAM role with the permission to execute the lambda functions
+
+## Architecture
+* Lambda function called extractor to extract exchange rates and save to S3
+* Lambda function to transform JSON exchange rates in CSV, in a format that can be easily copied from Redshift
+* Lambda loader, that can copy a CSV(or whatever other supported format) to Redshift
 
 ## Deployment
 <pre>
@@ -33,3 +38,5 @@ sls deploy
 <pre>
 python backfill.py --start-date 2019-02-01 --end-date 2019-02-10 --state-machine your-state-machine-arn
 </pre>
+
+
