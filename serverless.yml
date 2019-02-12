@@ -1,0 +1,155 @@
+service: etl-nico
+package:
+  individually: true
+  include:
+    - utils.py
+  exclude:
+    - ./**
+
+provider:
+  name: aws
+  runtime: python3.6
+  memorySize: 128
+  timeout: 300
+  stage: dev # default stage used in the service
+  deploymentBucket: nicor-deployment
+  versionFunctions: false
+  environment:
+    SLS_STAGE: ${opt:stage, self:provider.stage}
+    SLS_SERVICE: ${self:service}
+    PYTHONPATH: /var/runtime:/var/task/lib
+    SECRET_NAME: sample_etl
+
+functions:
+  extractor:
+    handler: extractor.main
+    description: Extract exchange rates and write them to S3
+    role: ExtractorExecutionRole
+    environment:
+      DESTINATION_S3_BUCKET: 'nicor-staging'
+    package:
+      include:
+        - extractor.py
+        - 'lib/certifi/**'
+        - 'lib/chardet/**'
+        - 'lib/idna/**'
+        - 'lib/requests/**'
+        - 'lib/urllib3/**'
+
+  transformer:
+    handler: transformer.main
+    description: Transform the extracted exchange rates in CSV
+    runtime: python3.6
+    role: TransformerExecutionRole
+    environment:
+      DESTINATION_S3_BUCKET: 'nicor-staging'
+    package:
+      include:
+        - transformer.py
+
+  loaderReadshift:
+    handler: loaderRedshift.main
+    description: Load data to Redshift
+    role: LoaderRedshiftExecutionRole
+    package:
+      include:
+        - loaderRedshift.py
+        - 'lib/**'
+
+resources:
+  Resources:
+    ExtractorExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - sts:AssumeRole
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+        Policies:
+          - PolicyName: WriteS3
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                Effect: Allow
+                Action:
+                - s3:PutObject*
+                Resource:
+                - Fn::Sub: 'arn:aws:s3:::hausmeister-sources/stage=${self:provider.environment.SLS_STAGE}/service=${self:service}/*'
+          - PolicyName: GetSecretManagerSecrets
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - 'arn:aws:secretsmanager:*:*:secret:*'
+
+    TransformerExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - sts:AssumeRole
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+        Policies:
+          - PolicyName: ReadS3
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                Effect: Allow
+                Action:
+                  - s3:GetObject*
+                Resource:
+                  - Fn::Sub: 'arn:aws:s3:::hausmeister-sources/stage=${self:provider.environment.SLS_STAGE}/service=${self:service}/*'
+          - PolicyName: WriteS3
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                Effect: Allow
+                Action:
+                  - s3:PutObject*
+                Resource:
+                  - Fn::Sub: 'arn:aws:s3:::hausmeister-transforms/stage=${self:provider.environment.SLS_STAGE}/service=${self:service}/*'
+          - PolicyName: GetSecretManagerSecrets
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - 'arn:aws:secretsmanager:*:*:secret:*'
+
+    LoaderRedshiftExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - sts:AssumeRole
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+        Policies:
+          - PolicyName: GetSecretManagerSecrets
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - 'arn:aws:secretsmanager:*:*:secret:*'
