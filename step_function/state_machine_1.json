@@ -4,7 +4,7 @@
   "States": {
     "ExtractorState": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:270870090353:function:etl-nico-dev-extractor",
+      "Resource": "arn:aws:lambda:us-east-1:your_account_id:function:etl-nico-dev-extractor",
       "Next": "TransformerState",
       "ResultPath": "$.extractor_result",
       "Retry": [
@@ -20,13 +20,13 @@
     },
     "TransformerState": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:270870090353:function:etl-nico-dev-transformer",
+      "Resource": "arn:aws:lambda:us-east-1:your_account_id:function:etl-nico-dev-transformer",
       "Next": "LoaderRedshiftState",
       "ResultPath": "$.transformer_result"
     },
     "LoaderRedshiftState": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:270870090353:function:etl-nico-dev-loaderReadshift",
+      "Resource": "arn:aws:lambda:us-east-1:your_account_id:function:etl-nico-dev-loaderReadshift",
       "End": true
     }
   }
