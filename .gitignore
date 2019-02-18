@@ -109,3 +109,6 @@ lib
 
 # IDE
 .idea
+
+# postgres data
+postgres_data
